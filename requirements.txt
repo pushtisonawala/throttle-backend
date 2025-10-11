@@ -1,0 +1,24 @@
+# Django and core dependencies
+Django==4.2.*
+djangorestframework==3.14.*
+
+# WebSocket support
+channels==4.0.*
+channels-redis==4.1.*
+
+# CORS handling for frontend
+django-cors-headers==4.3.*
+
+# Environment variable management
+python-decouple==3.8
+
+# Redis for channel layers
+redis==4.6.*
+
+# ASGI server
+uvicorn==0.23.*
+daphne==4.0.*
+google-generativeai
+
+# Additional utilities
+psutil==5.9.*
