@@ -5,11 +5,13 @@ A Django-based backend system for network traffic monitoring and intelligent thr
 ## 🎯 Features
 
 - **Real-time Network Monitoring** - WebSocket-based live statistics
-- **Intelligent Throttling** - Control bandwidth for specific devices
+- **Intelligent Throttling** - Control bandwidth for specific devices  
 - **AI Profile Generation** - Use Google Gemini to create optimal network configurations
 - **Device Management** - Track and manage network devices
 - **Historical Logging** - Store throttle actions and network statistics
 - **RESTful API** - Clean API endpoints for frontend integration
+- **Distributed Architecture** - Backend can run separately from network engine
+- **Cross-Device Communication** - Redis-based messaging between components
 
 ## 🏗️ Architecture
 
@@ -77,6 +79,23 @@ brew services start redis
 redis-server
 ```
 
+**For Distributed Setup**: If your network engine runs on a different machine (like a router), configure Redis to accept remote connections:
+
+```bash
+# Configure Redis to bind to all interfaces
+sudo sed -i 's/bind 127.0.0.1 -::1/bind 0.0.0.0/' /etc/redis/redis.conf
+
+# Disable protected mode for local network access
+redis-cli CONFIG SET protected-mode no
+redis-cli CONFIG REWRITE
+
+# Restart Redis
+sudo systemctl restart redis-server
+
+# Test from remote machine
+redis-cli -h <this-machine-ip> -p 6379 ping
+```
+
 ### 5. Start the Application
 
 **Option A: Production Script**
@@ -97,6 +116,10 @@ python manage.py redis_listener
 
 ## 🔌 API Endpoints
 
+### System Status
+
+- `GET /api/health/` - System health check and service status
+
 ### Device Control
 
 - `POST /api/throttle/` - Throttle/unthrottle a device
@@ -112,13 +135,20 @@ python manage.py redis_listener
 
 ## 📡 API Usage Examples
 
+### Check System Health
+
+```bash
+curl -s http://localhost:8000/api/health/ | python3 -m json.tool
+# Returns: {"status":"healthy","services":{"database":"connected","redis":"connected","ai_generation":"configured"}}
+```
+
 ### Throttle a Device
 
 ```bash
 curl -X POST http://localhost:8000/api/throttle/ \
   -H "Content-Type: application/json" \
   -d '{
-    "ip": "192.168.1.100",
+    "ip": "10.42.0.140",
     "action": "throttle",
     "limit_mbps": 2.0,
     "reason": "High bandwidth usage"
@@ -131,7 +161,7 @@ curl -X POST http://localhost:8000/api/throttle/ \
 curl -X POST http://localhost:8000/api/throttle/ \
   -H "Content-Type: application/json" \
   -d '{
-    "ip": "192.168.1.100",
+    "ip": "10.42.0.140",
     "action": "unthrottle"
   }'
 ```
@@ -192,19 +222,26 @@ ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
 ### Test WebSocket Connection
 
 ```bash
+# Install websockets if needed
+pip install websockets
+
+# Test WebSocket (requires ASGI server)
 python test_websocket.py
 ```
 
 ### Test API Endpoints
 
 ```bash
-# Check server status
-curl http://localhost:8000/api/devices/
+# Check system health
+curl -s http://localhost:8000/api/health/ | python3 -m json.tool
 
-# Test throttle endpoint
+# Check current network stats
+curl -s http://localhost:8000/api/devices/ | python3 -m json.tool
+
+# Test throttle endpoint (use real IP from your network)
 curl -X POST http://localhost:8000/api/throttle/ \
   -H "Content-Type: application/json" \
-  -d '{"ip": "192.168.1.100", "action": "throttle"}'
+  -d '{"ip": "10.42.0.140", "action": "throttle", "limit_mbps": 2}'
 ```
 
 ## 📊 Admin Interface
@@ -226,6 +263,12 @@ redis-cli ping
 
 # Start Redis service
 sudo systemctl start redis
+
+# For remote engine connections, configure Redis to bind to all interfaces
+sudo sed -i 's/bind 127.0.0.1 -::1/bind 0.0.0.0/' /etc/redis/redis.conf
+redis-cli CONFIG SET protected-mode no
+redis-cli CONFIG REWRITE
+sudo systemctl restart redis-server
 ```
 
 ### WebSocket Connection Failed
@@ -234,9 +277,16 @@ sudo systemctl start redis
 - Check that Redis is running and accessible
 - Verify firewall settings for port 8000
 
+### No Network Stats Appearing
+
+- Verify your network engine is running and configured to connect to this Redis server
+- Check engine configuration: `REDIS_HOST=<this-laptop-ip>` and `REDIS_PORT=6379`
+- Monitor Redis activity: `redis-cli MONITOR`
+- Check subscribers: `redis-cli PUBSUB NUMSUB network-stats throttle-commands`
+
 ### AI Profile Generation Not Working
 
-- Verify `GEMINI_API_KEY` is set correctly
+- Verify `GEMINI_API_KEY` is set correctly in `.env`
 - Check API quota and billing on Google Cloud Console
 
 ## 🔒 Security Notes
@@ -266,11 +316,76 @@ Located in `api/management/commands/`:
 
 This backend is designed to work with:
 
-- Network monitoring tools that publish stats to Redis
-- React/Vue.js frontends via REST API and WebSockets
-- External throttling engines that subscribe to Redis commands
+- **Network monitoring engines** that publish stats to Redis (`network-stats` channel)
+- **React/Vue.js frontends** via REST API and WebSockets
+- **External throttling engines** that subscribe to Redis commands (`throttle-commands` channel)
 
-## 📄 License
+### For Network Engine Integration
+
+Your network monitoring engine should:
+
+1. **Connect to Redis** on this backend server
+2. **Publish network stats** to `network-stats` channel in JSON format:
+   ```json
+   {
+     "timestamp": 1234567890.123,
+     "global": {"total_down_mbps": 25.5, "total_up_mbps": 5.2},
+     "devices": [
+       {
+         "ip": "10.42.0.140",
+         "mac": "aa:bb:cc:dd:ee:ff", 
+         "hostname": "device-name",
+         "down_mbps": 15.3,
+         "up_mbps": 2.1,
+         "status": "normal"
+       }
+     ],
+     "events": ["[10:42:15] Throttled 10.42.0.140"]
+   }
+   ```
+3. **Subscribe to throttle commands** from `throttle-commands` channel
+4. **Apply throttling rules** using iptables/tc based on received commands
+
+## � Quick Operation Commands
+
+### System Status
+```bash
+# Check overall system health
+curl -s http://localhost:8000/api/health/ | python3 -m json.tool
+
+# View current network activity  
+curl -s http://localhost:8000/api/devices/ | python3 -m json.tool
+
+# Check Redis subscriber status
+redis-cli PUBSUB NUMSUB network-stats throttle-commands
+```
+
+### Device Control
+```bash
+# Throttle a high-usage device
+curl -X POST http://localhost:8000/api/throttle/ \
+  -H "Content-Type: application/json" \
+  -d '{"ip":"10.42.0.140","action":"throttle","limit_mbps":2}'
+
+# Unthrottle a device
+curl -X POST http://localhost:8000/api/throttle/ \
+  -H "Content-Type: application/json" \
+  -d '{"ip":"10.42.0.140","action":"unthrottle"}'
+```
+
+### Real-time Monitoring
+```bash
+# Watch live network stats via Redis
+redis-cli SUBSCRIBE network-stats
+
+# Test WebSocket connection
+python test_websocket.py
+
+# Monitor Redis activity
+redis-cli MONITOR
+```
+
+## �📄 License
 
 [Add your license information here]
 
