@@ -21,4 +21,4 @@ daphne==4.0.*
 google-generativeai
 
 # Additional utilities
-psutil==5.9.*
+psutil==5.9.

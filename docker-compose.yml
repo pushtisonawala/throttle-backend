@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  backend:
+    build: .
+    container_name: throttle-api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    command: daphne -b 0.0.0.0 -p 8000 netguardian.asgi:application
+
+  redis:
+    image: redis:alpine
+    container_name: throttle-redis
+    ports:
+      - "6379:6379"

@@ -133,16 +133,11 @@ python manage.py redis_listener
 
 - `ws://localhost:8000/ws/stats/` - Real-time network statistics
 
-## 📡 API Usage Examples
-
-### Check System Health
 
 ```bash
 curl -s http://localhost:8000/api/health/ | python3 -m json.tool
-# Returns: {"status":"healthy","services":{"database":"connected","redis":"connected","ai_generation":"configured"}}
 ```
 
-### Throttle a Device
 
 ```bash
 curl -X POST http://localhost:8000/api/throttle/ \
