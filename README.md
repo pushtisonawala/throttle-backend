@@ -5,7 +5,7 @@ A Django-based backend system for network traffic monitoring and intelligent thr
 ## 🎯 Features
 
 - **Real-time Network Monitoring** - WebSocket-based live statistics
-- **Intelligent Throttling** - Control bandwidth for specific devices  
+- **Intelligent Throttling** - Control bandwidth for specific devices
 - **AI Profile Generation** - Use Google Gemini to create optimal network configurations
 - **Device Management** - Track and manage network devices
 - **Historical Logging** - Store throttle actions and network statistics
@@ -56,7 +56,20 @@ REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 
 # Allowed Hosts (comma-separated)
-ALLOWED_HOSTS=localhost,127.0.0.1
+ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,10.42.0.137
+```
+
+**For Distributed Deployment**: If running the backend on a separate machine from the network engine:
+
+```env
+# Backend Machine IP Configuration
+REDIS_HOST=127.0.0.1          # Redis runs locally on backend machine
+ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,<backend-ip>
+
+# Configure network engine to connect to backend's Redis
+# On network engine machine, set:
+# REDIS_HOST=<backend-machine-ip>  # e.g., 10.42.0.137
+# REDIS_PORT=6379
 ```
 
 ### 3. Database Setup
@@ -108,7 +121,7 @@ python start_production.py
 
 ```bash
 # Terminal 1: Start Django with ASGI
-daphne -b 0.0.0.0 -p 8000 netguardian.asgi:application
+daphne -b 0.0.0.0 -p 8082 netguardian.asgi:application
 
 # Terminal 2: Start Redis listener
 python manage.py redis_listener
@@ -131,16 +144,17 @@ python manage.py redis_listener
 
 ### WebSocket
 
-- `ws://localhost:8000/ws/stats/` - Real-time network statistics
+- `ws://localhost:8082/ws/stats/` - Real-time network statistics (**Note: trailing slash is required!**)
 
 
 ```bash
-curl -s http://localhost:8000/api/health/ | python3 -m json.tool
+curl -s http://localhost:8082/api/health/ | python3 -m json.tool
+# Returns: {"status":"healthy","services":{"database":"connected","redis":"connected","ai_generation":"configured"}}
 ```
 
 
 ```bash
-curl -X POST http://localhost:8000/api/throttle/ \
+curl -X POST http://localhost:8082/api/throttle/ \
   -H "Content-Type: application/json" \
   -d '{
     "ip": "10.42.0.140",
@@ -153,7 +167,7 @@ curl -X POST http://localhost:8000/api/throttle/ \
 ### Unthrottle a Device
 
 ```bash
-curl -X POST http://localhost:8000/api/throttle/ \
+curl -X POST http://localhost:8082/api/throttle/ \
   -H "Content-Type: application/json" \
   -d '{
     "ip": "10.42.0.140",
@@ -164,7 +178,7 @@ curl -X POST http://localhost:8000/api/throttle/ \
 ### Generate AI Profile
 
 ```bash
-curl -X POST http://localhost:8000/api/generate-profile/ \
+curl -X POST http://localhost:8082/api/generate-profile/ \
   -H "Content-Type: application/json" \
   -d '{
     "answers": {
@@ -228,20 +242,20 @@ python test_websocket.py
 
 ```bash
 # Check system health
-curl -s http://localhost:8000/api/health/ | python3 -m json.tool
+curl -s http://localhost:8082/api/health/ | python3 -m json.tool
 
 # Check current network stats
-curl -s http://localhost:8000/api/devices/ | python3 -m json.tool
+curl -s http://localhost:8082/api/devices/ | python3 -m json.tool
 
 # Test throttle endpoint (use real IP from your network)
-curl -X POST http://localhost:8000/api/throttle/ \
+curl -X POST http://localhost:8082/api/throttle/ \
   -H "Content-Type: application/json" \
   -d '{"ip": "10.42.0.140", "action": "throttle", "limit_mbps": 2}'
 ```
 
 ## 📊 Admin Interface
 
-Access the Django admin at `http://localhost:8000/admin/` to:
+Access the Django admin at `http://localhost:8082/admin/` to:
 
 - View and manage network devices
 - Review throttle action history
@@ -270,7 +284,9 @@ sudo systemctl restart redis-server
 
 - Ensure you're using `daphne` (ASGI) not `runserver` (WSGI)
 - Check that Redis is running and accessible
-- Verify firewall settings for port 8000
+- Verify firewall settings for port 8082
+- **Important**: WebSocket URL must include trailing slash: `ws://localhost:8082/ws/stats/` (not `/ws/stats`)
+- **CORS Issues**: If connecting from a frontend on a different origin (e.g., `localhost:5173`), the `AllowedHostsOriginValidator` in `netguardian/asgi.py` has been removed to allow cross-origin WebSocket connections
 
 ### No Network Stats Appearing
 
@@ -324,11 +340,11 @@ Your network monitoring engine should:
    ```json
    {
      "timestamp": 1234567890.123,
-     "global": {"total_down_mbps": 25.5, "total_up_mbps": 5.2},
+     "global": { "total_down_mbps": 25.5, "total_up_mbps": 5.2 },
      "devices": [
        {
          "ip": "10.42.0.140",
-         "mac": "aa:bb:cc:dd:ee:ff", 
+         "mac": "aa:bb:cc:dd:ee:ff",
          "hostname": "device-name",
          "down_mbps": 15.3,
          "up_mbps": 2.1,
@@ -344,31 +360,34 @@ Your network monitoring engine should:
 ## � Quick Operation Commands
 
 ### System Status
+
 ```bash
 # Check overall system health
-curl -s http://localhost:8000/api/health/ | python3 -m json.tool
+curl -s http://localhost:8082/api/health/ | python3 -m json.tool
 
-# View current network activity  
-curl -s http://localhost:8000/api/devices/ | python3 -m json.tool
+# View current network activity
+curl -s http://localhost:8082/api/devices/ | python3 -m json.tool
 
 # Check Redis subscriber status
 redis-cli PUBSUB NUMSUB network-stats throttle-commands
 ```
 
 ### Device Control
+
 ```bash
 # Throttle a high-usage device
-curl -X POST http://localhost:8000/api/throttle/ \
+curl -X POST http://localhost:8082/api/throttle/ \
   -H "Content-Type: application/json" \
   -d '{"ip":"10.42.0.140","action":"throttle","limit_mbps":2}'
 
 # Unthrottle a device
-curl -X POST http://localhost:8000/api/throttle/ \
+curl -X POST http://localhost:8082/api/throttle/ \
   -H "Content-Type: application/json" \
   -d '{"ip":"10.42.0.140","action":"unthrottle"}'
 ```
 
 ### Real-time Monitoring
+
 ```bash
 # Watch live network stats via Redis
 redis-cli SUBSCRIBE network-stats

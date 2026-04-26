@@ -1,5 +1,6 @@
 import redis
 import json
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -9,11 +10,13 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         channel_layer = get_channel_layer()
-        r = redis.Redis(host='localhost', port=6379, db=0)
+        redis_host = getattr(settings, 'REDIS_HOST', '127.0.0.1')
+        redis_port = getattr(settings, 'REDIS_PORT', 6379)
+        r = redis.Redis(host=redis_host, port=redis_port, db=0)
         pubsub = r.pubsub()
         pubsub.subscribe('network-stats')
 
-        self.stdout.write(self.style.SUCCESS('Starting Redis listener for network-stats...'))
+        self.stdout.write(self.style.SUCCESS(f'Starting Redis listener on {redis_host}:{redis_port} (network-stats)...'))
 
         for message in pubsub.listen():
             if message['type'] == 'message':

@@ -61,13 +61,13 @@ def start_server():
     """Start the ASGI server"""
     print("🚀 Starting NetGuardian server...")
     print("📍 Endpoints:")
-    print("   • HTTP API: http://localhost:8000/api/")
-    print("   • WebSocket: ws://localhost:8000/ws/stats/")
-    print("   • Admin: http://localhost:8000/admin/")
+    print("   • HTTP API: http://localhost:8082/api/")
+    print("   • WebSocket: ws://localhost:8082/ws/stats/")
+    print("   • Admin: http://localhost:8082/admin/")
     print("\n⏹️  Press Ctrl+C to stop\n")
     
     try:
-        subprocess.run(['daphne', '-b', '0.0.0.0', '-p', '8000', 'netguardian.asgi:application'])
+        subprocess.run([sys.executable, '-m', 'daphne', '-b', '0.0.0.0', '-p', '8082', 'netguardian.asgi:application'])
     except KeyboardInterrupt:
         print("\n👋 Server stopped")
     except FileNotFoundError:

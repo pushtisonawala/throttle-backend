@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 """
-NetGuardian ASGI Server
-Starts Django with proper ASGI support for WebSockets
+[LEGACY] start_asgi_server.py
+
+Prefer using the start.sh script in the repo root:
+    bash /home/xploy04/Documents/throtl-repo/start.sh
+
+Or run daphne directly:
+    cd throttle-backend
+    .venv/bin/daphne -b 0.0.0.0 -p 8082 netguardian.asgi:application
 """
 import os
 import sys

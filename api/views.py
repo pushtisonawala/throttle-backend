@@ -1,7 +1,10 @@
 import redis
 import json
 import time
-import google.generativeai as genai
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", FutureWarning)
+    import google.generativeai as genai
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -110,7 +113,7 @@ class GenerateProfileView(APIView):
             """
 
             # Real LLM call (uncomment for production after demo)
-            # model = genai.GenerativeModel('gemini-pro')
+            # model = genai.GenerativeModel('gemini-1.5-flash')
             # response = model.generate_content(full_prompt)
             # llm_output_text = response.text.strip()
             # if llm_output_text.startswith('```json'):

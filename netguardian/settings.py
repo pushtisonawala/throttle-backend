@@ -29,7 +29,7 @@ GEMINI_API_KEY = config('GEMINI_API_KEY', default=None)
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 # Allowed hosts configuration
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,0.0.0.0').split(',')
 
 # Redis configuration
 REDIS_HOST = config('REDIS_HOST', default='127.0.0.1')
@@ -101,10 +101,32 @@ DATABASES = {
     }
 }
 
-# CORS settings for React frontend
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+# CORS settings
+# Allows all origins in development. For production, set CORS_ALLOW_ALL_ORIGINS=False
+# and list specific origins in CORS_ALLOWED_ORIGINS.
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
+
+# Additional CORS settings
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOWED_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
 ]
 
 # Password validation
@@ -147,7 +169,6 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Add or update logging for debugging LLM/Redis
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -159,7 +180,12 @@ LOGGING = {
     'loggers': {
         '': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': 'WARNING',
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
         },
     },
 }

@@ -58,3 +58,12 @@ coverage.xml
 *.egg-info/
 dist/
 build/
+# Test/Temp Files
+*test*.html
+websocket_test.html
+cors_test.html
+
+# Node modules (just in case)
+node_modules/
+package-lock.json
+
